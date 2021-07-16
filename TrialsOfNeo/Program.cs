@@ -33,8 +33,8 @@ namespace TrialsOfNeo
 
             var grapher = new Grapher(executor);
 
-            var grapherCollected = await grapher.ReadAs<Actor>(collectedQuery);
-            var grapherOneToOneQuery = await grapher.ReadAs<Actor>(oneToOneQuery);
+            var grapherOneToOneQuery = await grapher.ReadAs<ActorWithSingleMovie>(oneToOneQuery);
+            var grapherCollected = await grapher.ReadAs<ActorWithMovies>(collectedQuery);
         }
     }
 }
