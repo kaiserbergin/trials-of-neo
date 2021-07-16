@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,12 +23,59 @@ namespace TrialsOfNeo
             return Translate<T>(records);
         }
         
-        #region Paper Napkin Plan
+        #region Paper Napkin Plan - Premapping
 
         private INode _anchorNode;
         private Dictionary<long, INode> _nodesById = new Dictionary<long, INode>();
-        private Lookup<string, Dictionary<(long startId, long endId), IRelationship>> _relationshipLookup;
+        private ILookup<string, IRelationship> _relationshipLookup;
 
+        public void AssignAnchorNode<T>(List<IRecord> records) where T : new()
+        {
+            var type = typeof(T);
+            var attributes = Attribute.GetCustomAttributes(type);
+            var labels = GetNodeLabels(attributes);
+
+            var isAnchorFound = false;
+            
+            foreach (var record in records)
+            {
+                foreach (var (_, recordValue) in record.Values)
+                {
+                    if (recordValue is INode node) 
+                    {
+                        foreach (var label in node.Labels)
+                        {
+                            if (labels.Contains(label))
+                            {
+                                _anchorNode = node;
+                                isAnchorFound = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isAnchorFound) break;
+                }
+
+                if (isAnchorFound) break;
+            }
+        }
+
+        private HashSet<string> GetNodeLabels(Attribute[] attributes)
+        {
+            var labels = new HashSet<string>();
+
+            foreach (var attribute in attributes)
+            {
+                if (attribute is NodeAttribute nodeAttribute)
+                {
+                    labels.Add(nodeAttribute.Label);
+                }
+            }
+
+            return labels;
+        }
+        
         public void PopulateNodes(List<IRecord> records)
         {
             foreach (var record in records)
@@ -40,30 +88,49 @@ namespace TrialsOfNeo
                     }
                     else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null && objectList.FirstOrDefault() is INode)
                     {
-                        foreach (var obj in objectList) //lulz
+                        foreach (var obj in objectList)
                         {
                             var nodeFromObj = obj as INode;
                             if (nodeFromObj?.Id != null)
                                 _nodesById.TryAdd(nodeFromObj.Id, nodeFromObj);
                         }
                     }
-                    
-                    // switch (recordValue)
-                    // {
-                    //     case INode node:
-                    //         _nodesById.TryAdd(node.Id, node);
-                    //         break;
-                    //     case List<INode> nodes:
-                    //     {
-                    //         foreach (var node in nodes)
-                    //         {
-                    //             _nodesById.TryAdd(node.Id, node);
-                    //         }
-                    //         break;
-                    //     }
-                    // }
                 }
             }
+        }
+
+        public void PopulateRelationships(List<IRecord> records)
+        {
+            var distinctRelationships = GetDistinctRelationships(records);
+
+            _relationshipLookup = distinctRelationships.ToLookup(rel => rel.Type, rel => rel);
+        }
+
+        private List<IRelationship> GetDistinctRelationships(List<IRecord> records)
+        {
+            var relationships = new Dictionary<long, IRelationship>();
+            
+            foreach (var record in records)
+            {
+                foreach (var (_, recordValue) in record.Values)
+                {
+                    if (recordValue is IRelationship relationship)
+                    {
+                        relationships.TryAdd(relationship.Id, relationship);
+                    }
+                    else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null && objectList.FirstOrDefault() is IRelationship)
+                    {
+                        foreach (var obj in objectList)
+                        {
+                            var relationshipFromObj = obj as IRelationship;
+                            if (relationshipFromObj?.Id != null)
+                                relationships.TryAdd(relationshipFromObj.Id, relationshipFromObj);
+                        }
+                    }
+                }
+            }
+
+            return relationships.Values.ToList();
         }
         
         #endregion
