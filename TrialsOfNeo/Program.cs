@@ -32,11 +32,6 @@ namespace TrialsOfNeo
             var collectedResults = await executor.Read(collectedQuery);
 
             var grapher = new Grapher(executor);
-            
-            grapher.AssignAnchorNode<Actor>(collectedResults);
-            grapher.PopulateNodes(collectedResults);
-            grapher.PopulateRelationships(collectedResults);
-            
 
             var grapherCollected = await grapher.ReadAs<Actor>(collectedQuery);
             var grapherOneToOneQuery = await grapher.ReadAs<Actor>(oneToOneQuery);

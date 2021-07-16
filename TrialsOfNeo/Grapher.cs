@@ -29,7 +29,14 @@ namespace TrialsOfNeo
         private Dictionary<long, INode> _nodesById = new Dictionary<long, INode>();
         private ILookup<string, IRelationship> _relationshipLookup;
 
-        public void AssignAnchorNode<T>(List<IRecord> records) where T : new()
+        private void AssignNeoLookups<T>(List<IRecord> records) where T : new ()
+        {
+            AssignAnchorNode<T>(records);
+            AssignNodes(records);
+            AssignRelationships(records);
+        }
+
+        private void AssignAnchorNode<T>(List<IRecord> records) where T : new()
         {
             var type = typeof(T);
             var attributes = Attribute.GetCustomAttributes(type);
@@ -76,7 +83,7 @@ namespace TrialsOfNeo
             return labels;
         }
         
-        public void PopulateNodes(List<IRecord> records)
+        private void AssignNodes(List<IRecord> records)
         {
             foreach (var record in records)
             {
@@ -99,7 +106,7 @@ namespace TrialsOfNeo
             }
         }
 
-        public void PopulateRelationships(List<IRecord> records)
+        private void AssignRelationships(List<IRecord> records)
         {
             var distinctRelationships = GetDistinctRelationships(records);
 
@@ -145,8 +152,10 @@ namespace TrialsOfNeo
         //  If first converted class references another, keep going.
         //  Investigate IRelationship to ensure we traverse properly.
         //  Once everything is done, go through each relationship and tie the references
-        private static List<T> Translate<T>(List<IRecord> records) where T : new()
+        private List<T> Translate<T>(List<IRecord> records) where T : new()
         {
+            AssignNeoLookups<T>(records);
+            
             var result = new List<T>();
 
             var type = typeof(T);
