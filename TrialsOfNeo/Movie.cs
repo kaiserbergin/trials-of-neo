@@ -10,6 +10,6 @@
         public string Title { get; set; }
 
         [NeoProperty("released")]
-        public int Released { get; set; }
+        public long Released { get; set; }
     }
 }

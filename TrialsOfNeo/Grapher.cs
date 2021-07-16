@@ -21,6 +21,54 @@ namespace TrialsOfNeo
 
             return Translate<T>(records);
         }
+        
+        #region Paper Napkin Plan
+
+        private INode _anchorNode;
+        private Dictionary<long, INode> _nodesById = new Dictionary<long, INode>();
+        private Lookup<string, Dictionary<(long startId, long endId), IRelationship>> _relationshipLookup;
+
+        public void PopulateNodes(List<IRecord> records)
+        {
+            foreach (var record in records)
+            {
+                foreach (var (_, recordValue) in record.Values)
+                {
+                    if (recordValue is INode node)
+                    {
+                        _nodesById.TryAdd(node.Id, node);
+                    }
+                    else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null && objectList.FirstOrDefault() is INode)
+                    {
+                        foreach (var obj in objectList)
+                        {
+                            var nodeFromObj = obj as INode;
+                            if (nodeFromObj?.Id != null)
+                                _nodesById.TryAdd(nodeFromObj.Id, nodeFromObj);
+                        }
+                    }
+                    
+                    // switch (recordValue)
+                    // {
+                    //     case INode node:
+                    //         _nodesById.TryAdd(node.Id, node);
+                    //         break;
+                    //     case List<INode> nodes:
+                    //     {
+                    //         foreach (var node in nodes)
+                    //         {
+                    //             _nodesById.TryAdd(node.Id, node);
+                    //         }
+                    //         break;
+                    //     }
+                    // }
+                }
+            }
+        }
+        
+        #endregion
+        
+        #region First Attempt
 
         // Notes: update flow to be like:
         //  Start with passed in class
@@ -80,5 +128,7 @@ namespace TrialsOfNeo
 
             return result;
         }
+        
+        #endregion
     }
 }
