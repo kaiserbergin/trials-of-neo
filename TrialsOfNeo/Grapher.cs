@@ -40,7 +40,7 @@ namespace TrialsOfNeo
                     }
                     else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null && objectList.FirstOrDefault() is INode)
                     {
-                        foreach (var obj in objectList)
+                        foreach (var obj in objectList) //lulz
                         {
                             var nodeFromObj = obj as INode;
                             if (nodeFromObj?.Id != null)
