@@ -1,7 +1,9 @@
+using System;
+
 namespace TrialsOfNeo
 {
-    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
-    public class NodeAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class NodeAttribute : Attribute
     {
         public string Label { get; }
 

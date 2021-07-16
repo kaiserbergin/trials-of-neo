@@ -3,7 +3,7 @@
 namespace TrialsOfNeo
 {
     [AttributeUsage(AttributeTargets.Property)]
-    public class NeoTargetNodeAttribute : Attribute
+    public class NeoIdAttribute : Attribute
     {
         
     }

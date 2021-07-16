@@ -1,7 +1,9 @@
-﻿namespace TrialsOfNeo
+﻿using System;
+
+namespace TrialsOfNeo
 {
-    [System.AttributeUsage(System.AttributeTargets.Property)]
-    public class NeoRelationshipAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Property)]
+    public class NeoRelationshipAttribute : Attribute
     {
         public string Type { get; set; }
         public RelationshipDirection Direction { get; set; }

@@ -1,7 +1,9 @@
+using System;
+
 namespace TrialsOfNeo
 {
-    [System.AttributeUsage(System.AttributeTargets.Property)]
-    public class NeoPropertyAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Property)]
+    public class NeoPropertyAttribute : Attribute
     {
         public string Name { get; set; }
 

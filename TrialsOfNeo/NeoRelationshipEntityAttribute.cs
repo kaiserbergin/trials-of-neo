@@ -1,7 +1,9 @@
-﻿namespace TrialsOfNeo
+﻿using System;
+
+namespace TrialsOfNeo
 {
-    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
-    public class NeoRelationshipEntityAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class NeoRelationshipEntityAttribute : Attribute
     {
         
     }

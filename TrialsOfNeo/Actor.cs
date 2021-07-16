@@ -1,9 +1,8 @@
-using System.Reflection.Emit;
-using Neo4j.Driver;
+using System.Collections.Generic;
 
 namespace TrialsOfNeo
 {
-    [Node(label: "Person")]
+    [Node("Person")]
     public class Actor 
     {
         [NeoProperty("name")]
