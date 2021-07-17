@@ -27,10 +27,10 @@ namespace TrialsOfNeo
         private Dictionary<long, INode> _nodesById = new Dictionary<long, INode>();
         private ILookup<string, IRelationship> _relationshipLookup;
 
-        private void AssignNeoLookups(List<IRecord> records)
+        private void AssignNeoLookups(IRecord record)
         {
-            AssignNodes(records);
-            AssignRelationships(records);
+            AssignNodes(record);
+            AssignRelationships(record);
         }
 
         private INode GetAnchorNode(IRecord record, Type targetType)
@@ -70,58 +70,52 @@ namespace TrialsOfNeo
             return labels;
         }
 
-        private void AssignNodes(List<IRecord> records)
+        private void AssignNodes(IRecord record)
         {
-            foreach (var record in records)
+            foreach (var (_, recordValue) in record.Values)
             {
-                foreach (var (_, recordValue) in record.Values)
+                if (recordValue is INode node)
                 {
-                    if (recordValue is INode node)
+                    _nodesById.TryAdd(node.Id, node);
+                }
+                else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null &&
+                         objectList.FirstOrDefault() is INode)
+                {
+                    foreach (var obj in objectList)
                     {
-                        _nodesById.TryAdd(node.Id, node);
-                    }
-                    else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null &&
-                             objectList.FirstOrDefault() is INode)
-                    {
-                        foreach (var obj in objectList)
-                        {
-                            var nodeFromObj = obj as INode;
-                            if (nodeFromObj?.Id != null)
-                                _nodesById.TryAdd(nodeFromObj.Id, nodeFromObj);
-                        }
+                        var nodeFromObj = obj as INode;
+                        if (nodeFromObj?.Id != null)
+                            _nodesById.TryAdd(nodeFromObj.Id, nodeFromObj);
                     }
                 }
             }
         }
 
-        private void AssignRelationships(List<IRecord> records)
+        private void AssignRelationships(IRecord record)
         {
-            var distinctRelationships = GetDistinctRelationships(records);
+            var distinctRelationships = GetDistinctRelationships(record);
 
             _relationshipLookup = distinctRelationships.ToLookup(rel => rel.Type, rel => rel);
         }
 
-        private List<IRelationship> GetDistinctRelationships(List<IRecord> records)
+        private List<IRelationship> GetDistinctRelationships(IRecord record)
         {
             var relationships = new Dictionary<long, IRelationship>();
 
-            foreach (var record in records)
+            foreach (var (_, recordValue) in record.Values)
             {
-                foreach (var (_, recordValue) in record.Values)
+                if (recordValue is IRelationship relationship)
                 {
-                    if (recordValue is IRelationship relationship)
+                    relationships.TryAdd(relationship.Id, relationship);
+                }
+                else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null &&
+                         objectList.FirstOrDefault() is IRelationship)
+                {
+                    foreach (var obj in objectList)
                     {
-                        relationships.TryAdd(relationship.Id, relationship);
-                    }
-                    else if (recordValue is List<object> objectList && objectList.FirstOrDefault() != null &&
-                             objectList.FirstOrDefault() is IRelationship)
-                    {
-                        foreach (var obj in objectList)
-                        {
-                            var relationshipFromObj = obj as IRelationship;
-                            if (relationshipFromObj?.Id != null)
-                                relationships.TryAdd(relationshipFromObj.Id, relationshipFromObj);
-                        }
+                        var relationshipFromObj = obj as IRelationship;
+                        if (relationshipFromObj?.Id != null)
+                            relationships.TryAdd(relationshipFromObj.Id, relationshipFromObj);
                     }
                 }
             }
@@ -135,26 +129,25 @@ namespace TrialsOfNeo
 
         private List<T> Translate<T>(List<IRecord> records) where T : class, new()
         {
-            AssignNeoLookups(records);
-
             var result = new List<object>();
 
             var targetType = typeof(T);
 
             foreach (var record in records)
             {
+                AssignNeoLookups(record);
                 var translatedNode = TranslateNode(GetAnchorNode(record, targetType), targetType);
                 result.Add(translatedNode);
             }
 
-            return result.Select(obj => (T)obj).ToList();
+            return result.Select(obj => (T) obj).ToList();
         }
 
         private object TranslateNode(INode neoNode, Type targetType)
         {
             if (targetType.GetConstructor(Type.EmptyTypes) == null)
                 throw new Exception($"You need a paramless ctor bro. Class: {targetType.Name}");
-            
+
             var target = Activator.CreateInstance(targetType);
 
             var targetProperties = targetType.GetProperties();
@@ -189,12 +182,12 @@ namespace TrialsOfNeo
                 {
                     // need to determine target type when wrapped in IEnumerable
                     // Also we populated ALL the relationships and nodes instead of the ones in our current record.
-                    var nodeTargetType = propertyInfo.PropertyType;
-                    var targetTypeCustomAttributes = Attribute.GetCustomAttributes(nodeTargetType);
+                    var relationshipPropertyType = propertyInfo.PropertyType;
+                    var targetTypeCustomAttributes = Attribute.GetCustomAttributes(relationshipPropertyType);
                     var targetTypeLabels = GetNodeLabels(targetTypeCustomAttributes);
 
                     var targetNodes = new List<object>();
-                    
+
                     var relationshipsOfTargetType = _relationshipLookup[neoRelationshipAttribute.Type];
 
                     if (neoRelationshipAttribute.Direction == RelationshipDirection.Outgoing)
@@ -209,7 +202,7 @@ namespace TrialsOfNeo
                                     {
                                         if (targetTypeLabels.Contains(label))
                                         {
-                                            var translatedTargetNode = TranslateNode(candidateTargetNode, nodeTargetType);
+                                            var translatedTargetNode = TranslateNode(candidateTargetNode, relationshipPropertyType);
                                             targetNodes.Add(translatedTargetNode);
                                         }
                                     }
@@ -219,8 +212,10 @@ namespace TrialsOfNeo
                     }
                     else if (neoRelationshipAttribute.Direction == RelationshipDirection.Incoming)
                     {
-                        
                     }
+                    
+                    // diff bt 1-many and 1-1
+                    propertyInfo.SetValue(target, targetNodes.First());
                 }
             }
 
