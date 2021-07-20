@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -182,44 +183,103 @@ namespace TrialsOfNeo
                 {
                     // need to determine target type when wrapped in IEnumerable
                     // Also we populated ALL the relationships and nodes instead of the ones in our current record.
-                    var relationshipPropertyType = propertyInfo.PropertyType;
-                    var targetTypeCustomAttributes = Attribute.GetCustomAttributes(relationshipPropertyType);
-                    var targetTypeLabels = GetNodeLabels(targetTypeCustomAttributes);
+                    var relationshipTargetType = propertyInfo.PropertyType;
 
-                    var targetNodes = new List<object>();
-
-                    var relationshipsOfTargetType = _relationshipLookup[neoRelationshipAttribute.Type];
-
-                    if (neoRelationshipAttribute.Direction == RelationshipDirection.Outgoing)
+                    if (typeof(string) != relationshipTargetType && typeof(IEnumerable).IsAssignableFrom(relationshipTargetType))
                     {
-                        foreach (var relationship in relationshipsOfTargetType)
-                        {
-                            if (relationship.StartNodeId == neoNode.Id)
-                            {
-                                if (_nodesById.TryGetValue(relationship.EndNodeId, out var candidateTargetNode))
-                                {
-                                    foreach (var label in candidateTargetNode.Labels)
-                                    {
-                                        if (targetTypeLabels.Contains(label))
-                                        {
-                                            var translatedTargetNode = TranslateNode(candidateTargetNode, relationshipPropertyType);
-                                            targetNodes.Add(translatedTargetNode);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        var targetNodeType = relationshipTargetType.GetGenericArguments()[0];
+                        var targetNodes = TranslateRelatedNodes(neoNode, neoRelationshipAttribute, targetNodeType);
+
+                        propertyInfo.SetValue(target, targetNodes);
                     }
-                    else if (neoRelationshipAttribute.Direction == RelationshipDirection.Incoming)
+                    else
                     {
+                        var targetNode = TranslateRelatedNode(neoNode, neoRelationshipAttribute, relationshipTargetType);
+                        
+                        propertyInfo.SetValue(target, targetNode);
                     }
-                    
-                    // diff bt 1-many and 1-1
-                    propertyInfo.SetValue(target, targetNodes.First());
                 }
             }
 
             return target;
+        }
+
+        private object TranslateRelatedNode(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, Type targetNodeType)
+        {
+            var targetTypeLabels = GetTargetTypeLabels(targetNodeType);
+            INode nodeToTranslate = null;
+
+            var relationshipsOfTargetType = _relationshipLookup[neoRelationshipAttribute.Type];
+
+            foreach (var relationship in relationshipsOfTargetType)
+            {
+                if (IsTranslatableRelationship(sourceNode, neoRelationshipAttribute, relationship, targetTypeLabels, out var targetNode))
+                {
+                    if (nodeToTranslate != null)
+                        throw new Exception("You have multiple relationship matches for a 1 to 1 mapping.");
+
+                    nodeToTranslate = targetNode;
+                }
+            }
+
+            return TranslateNode(nodeToTranslate, targetNodeType);
+        }
+
+        private HashSet<string> GetTargetTypeLabels(Type targetNodeType)
+        {
+            var targetTypeCustomAttributes = Attribute.GetCustomAttributes(targetNodeType);
+            var targetTypeLabels = GetNodeLabels(targetTypeCustomAttributes);
+            return targetTypeLabels;
+        }
+
+        private IList TranslateRelatedNodes(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, Type targetNodeType)
+        {
+            var targetTypeLabels = GetTargetTypeLabels(targetNodeType);
+
+            var genericListType = typeof(List<>).MakeGenericType(targetNodeType);
+            var targetNodes = (IList) Activator.CreateInstance(genericListType);
+
+            var relationshipsOfTargetType = _relationshipLookup[neoRelationshipAttribute.Type];
+
+            foreach (var relationship in relationshipsOfTargetType)
+            {
+                if (IsTranslatableRelationship(sourceNode, neoRelationshipAttribute, relationship, targetTypeLabels, out var targetNode))
+                {
+                    var translatedNode = TranslateNode(targetNode, targetNodeType);
+                    targetNodes!.Add(translatedNode);
+                }
+            }
+
+            return targetNodes;
+        }
+
+        private bool IsTranslatableRelationship(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, IRelationship relationship, HashSet<string> targetTypeLabels, out INode targetNode)
+        {
+            targetNode = null;
+
+            var (relationshipSourceId, relationshipTargetId) = neoRelationshipAttribute.Direction switch
+            {
+                RelationshipDirection.Incoming => (relationship.EndNodeId, relationship.StartNodeId),
+                RelationshipDirection.Outgoing => (relationship.StartNodeId, relationship.EndNodeId),
+                _ => throw new Exception("Invalid Direction")
+            };
+
+            if (sourceNode.Id == relationshipSourceId)
+            {
+                if (_nodesById.TryGetValue(relationshipTargetId, out var candidateTargetNode))
+                {
+                    foreach (var label in candidateTargetNode.Labels)
+                    {
+                        if (targetTypeLabels.Contains(label))
+                        {
+                            targetNode = candidateTargetNode;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         #endregion
