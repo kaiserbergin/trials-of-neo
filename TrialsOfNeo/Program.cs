@@ -34,7 +34,7 @@ namespace TrialsOfNeo
                 OPTIONAL MATCH (rv)<-[f:FOLLOWS]-(fl:Person) 
                 RETURN a, collect(r), collect(m), collect(v), collect(rv), collect(f), collect(fl)
                 ";
-            const string queryWithCalculatedField = "MATCH (a:Person {name:'Tom Hanks'}) RETURN a, 42";
+            const string queryWithCalculatedField = "MATCH (a:Person {name:'Tom Hanks'}) RETURN a, 42 as whatever";
 
             var oneToOneResults = await executor.Read(oneToOneQuery);
             var collectedResults = await executor.Read(collectedQuery);

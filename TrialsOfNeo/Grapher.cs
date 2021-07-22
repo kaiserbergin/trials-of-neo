@@ -137,17 +137,20 @@ namespace TrialsOfNeo
             foreach (var record in records)
             {
                 AssignNeoLookups(record);
-                var translatedNode = TranslateNode(GetAnchorNode(record, targetType), targetType);
+                var translatedNode = TranslateNode(GetAnchorNode(record, targetType), targetType, new HashSet<long>());
                 result.Add(translatedNode);
             }
 
             return result.Select(obj => (T) obj).ToList();
         }
 
-        private object TranslateNode(INode neoNode, Type targetType)
+        private object TranslateNode(INode neoNode, Type targetType, HashSet<long> traversedIds)
         {
             if (targetType.GetConstructor(Type.EmptyTypes) == null)
                 throw new Exception($"You need a paramless ctor bro. Class: {targetType.Name}");
+
+            traversedIds = new HashSet<long>(traversedIds);
+            var isFirstTraversal = traversedIds.Add(neoNode.Id);
 
             var target = Activator.CreateInstance(targetType);
 
@@ -179,7 +182,7 @@ namespace TrialsOfNeo
                     continue;
                 }
 
-                if (neoRelationshipAttribute?.Type != null)
+                if (isFirstTraversal && neoRelationshipAttribute?.Type != null)
                 {
                     // need to determine target type when wrapped in IEnumerable
                     // Also we populated ALL the relationships and nodes instead of the ones in our current record.
@@ -188,13 +191,13 @@ namespace TrialsOfNeo
                     if (typeof(string) != relationshipTargetType && typeof(IEnumerable).IsAssignableFrom(relationshipTargetType))
                     {
                         var targetNodeType = relationshipTargetType.GetGenericArguments()[0];
-                        var targetNodes = TranslateRelatedNodes(neoNode, neoRelationshipAttribute, targetNodeType);
+                        var targetNodes = TranslateRelatedNodes(neoNode, neoRelationshipAttribute, targetNodeType, traversedIds);
 
                         propertyInfo.SetValue(target, targetNodes);
                     }
                     else
                     {
-                        var targetNode = TranslateRelatedNode(neoNode, neoRelationshipAttribute, relationshipTargetType);
+                        var targetNode = TranslateRelatedNode(neoNode, neoRelationshipAttribute, relationshipTargetType, traversedIds);
                         
                         propertyInfo.SetValue(target, targetNode);
                     }
@@ -204,7 +207,11 @@ namespace TrialsOfNeo
             return target;
         }
 
-        private object TranslateRelatedNode(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, Type targetNodeType)
+        private object TranslateRelatedNode(
+            INode sourceNode,
+            NeoRelationshipAttribute neoRelationshipAttribute,
+            Type targetNodeType,
+            HashSet<long> traversedIds)
         {
             var targetTypeLabels = GetTargetTypeLabels(targetNodeType);
             INode nodeToTranslate = null;
@@ -222,7 +229,7 @@ namespace TrialsOfNeo
                 }
             }
 
-            return TranslateNode(nodeToTranslate, targetNodeType);
+            return TranslateNode(nodeToTranslate, targetNodeType, traversedIds);
         }
 
         private HashSet<string> GetTargetTypeLabels(Type targetNodeType)
@@ -232,7 +239,11 @@ namespace TrialsOfNeo
             return targetTypeLabels;
         }
 
-        private IList TranslateRelatedNodes(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, Type targetNodeType)
+        private IList TranslateRelatedNodes(
+            INode sourceNode,
+            NeoRelationshipAttribute neoRelationshipAttribute,
+            Type targetNodeType, 
+            HashSet<long> traversedIds)
         {
             var targetTypeLabels = GetTargetTypeLabels(targetNodeType);
 
@@ -245,7 +256,7 @@ namespace TrialsOfNeo
             {
                 if (IsTranslatableRelationship(sourceNode, neoRelationshipAttribute, relationship, targetTypeLabels, out var targetNode))
                 {
-                    var translatedNode = TranslateNode(targetNode, targetNodeType);
+                    var translatedNode = TranslateNode(targetNode, targetNodeType, traversedIds);
                     targetNodes!.Add(translatedNode);
                 }
             }
@@ -253,7 +264,12 @@ namespace TrialsOfNeo
             return targetNodes;
         }
 
-        private bool IsTranslatableRelationship(INode sourceNode, NeoRelationshipAttribute neoRelationshipAttribute, IRelationship relationship, HashSet<string> targetTypeLabels, out INode targetNode)
+        private bool IsTranslatableRelationship(
+            INode sourceNode, 
+            NeoRelationshipAttribute neoRelationshipAttribute, 
+            IRelationship relationship, 
+            HashSet<string> targetTypeLabels, 
+            out INode targetNode)
         {
             targetNode = null;
 
