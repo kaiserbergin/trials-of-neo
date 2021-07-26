@@ -35,11 +35,15 @@ namespace TrialsOfNeo
                 RETURN a, collect(r), collect(m), collect(v), collect(rv), collect(f), collect(fl)
                 ";
             const string queryWithCalculatedField = "MATCH (a:Person {name:'Tom Hanks'}) RETURN a, 42 as whatever";
+            const string queryWithMap = "MATCH (m:Movie) WHERE m.title CONTAINS 'Matrix' RETURN m { .title, .released } AS movie";
+            const string queryWithPath = "MATCH path = (p:Person)-[:DIRECTED]->(m:Movie) return path";
 
             var oneToOneResults = await executor.Read(oneToOneQuery);
             var collectedResults = await executor.Read(collectedQuery);
             var bigCollectedResults = await executor.Read(bigCollectedQuery);
             var calculatedResults = await executor.Read(queryWithCalculatedField);
+            var mapResults = await executor.Read(queryWithMap);
+            var pathResults = await executor.Read(queryWithPath);
 
             var grapher = new Grapher(executor);
 
